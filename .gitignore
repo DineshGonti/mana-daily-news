@@ -1,0 +1,10 @@
+node_modules/
+.DS_Store
+dist/
+*.log
+mana-daily-news-demo.html
+mana-daily-news-demo.zip
+mana-daily-news-full.zip
+zi6uAgrM
+serve-demo.sh
+demo-build/
