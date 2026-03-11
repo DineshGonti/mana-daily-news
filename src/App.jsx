@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getArticles, catIcons, mandals, districts, startAutoFetch, fetchGoogleNews } from './store.js';
 
 // Brand colors
@@ -174,46 +174,13 @@ export default function App() {
         </div>
       </div>
 
-      {/* News - Snap Scroll: One article per screen */}
-      <div style={{ flex: '1 1 0%', overflowY: 'scroll', scrollSnapType: 'y mandatory', WebkitOverflowScrolling: 'touch' }}>
+      {/* News - One article per screen with snap scroll */}
+      <div className="snap-container" style={{ flex: '1 1 0%' }}>
         {filtered.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: textSecondary, fontSize: 16 }}>No news in this category</div>
-        ) : filtered.map((a, i) => {
-          const content = newsLang === 'te' ? a.te : a.en;
-          const isSaved = savedIds.includes(a.id);
-          return (
-            <div key={a.id} style={{ scrollSnapAlign: 'start', height: '100%', display: 'flex', flexDirection: 'column', borderBottom: `1px solid ${border}` }}>
-              {/* Image - top 40% */}
-              <div style={{ position: 'relative', flex: '0 0 40%', cursor: 'pointer' }} onClick={() => setFullStory(a)}>
-                <img src={a.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(transparent 50%, rgba(0,0,0,.5))' }} />
-                <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                  {a.breaking && <span style={{ background: C.accent, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{t.breaking}</span>}
-                  <span style={{ background: C.primary, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>{catIcons[a.category]} {a.category}</span>
-                </div>
-                <div style={{ position: 'absolute', bottom: 10, left: 10 }}>
-                  <span style={{ background: 'rgba(0,0,0,.6)', color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>📍 {a.mandal}{a.district ? `, ${a.district}` : ''}</span>
-                </div>
-                {/* Counter */}
-                <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,.6)', color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>{i + 1}/{filtered.length}</div>
-              </div>
-              {/* Content - bottom 60% */}
-              <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', background: bgCard }}>
-                <h2 onClick={() => setFullStory(a)} style={{ fontSize: lang === 'te' ? 19 : 20, fontWeight: 800, lineHeight: 1.3, color: textPrimary, marginBottom: 6, cursor: 'pointer' }}>{content.title}</h2>
-                <div style={{ fontSize: 12, color: textSecondary, marginBottom: 10 }}>{a.author} • {a.time}</div>
-                <p style={{ fontSize: 14, color: textBody, lineHeight: 1.7, flex: 1, overflow: 'auto' }}>{content.body}</p>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, marginTop: 8, borderTop: `1px solid ${border}` }}>
-                  <button onClick={() => setFullStory(a)} style={{ color: C.accent, fontWeight: 700, fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{t.readMore}</button>
-                  <div style={{ display: 'flex', gap: 16 }}>
-                    <button onClick={() => toggleSave(a.id)} style={{ fontSize: 14, color: isSaved ? C.accent : textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: isSaved ? 700 : 400 }}>{isSaved ? '🔖 Saved' : '🔖'}</button>
-                    <button onClick={() => handleShare(a)} style={{ fontSize: 14, color: textSecondary, background: 'none', border: 'none', cursor: 'pointer' }}>📤</button>
-                  </div>
-                </div>
-                <div style={{ textAlign: 'center', fontSize: 11, color: dark ? '#555' : '#bbb', marginTop: 6 }}>↕ Swipe up for next</div>
-              </div>
-            </div>
-          );
-        })}
+        ) : filtered.map((a, i) => (
+          <SnapNewsCard key={a.id} article={a} index={i} total={filtered.length} lang={lang} newsLang={newsLang} t={t} savedIds={savedIds} toggleSave={toggleSave} handleShare={handleShare} setFullStory={setFullStory} dark={dark} bgCard={bgCard} textPrimary={textPrimary} textSecondary={textSecondary} textBody={textBody} border={border} />
+        ))}
       </div>
 
       {/* Bottom Nav */}
@@ -254,6 +221,58 @@ function FullStoryView({ article, lang, newsLang = 'te', t, dark, bg, textPrimar
             <button onClick={() => handleShare(a)} style={{ flex: 1, padding: '12px', borderRadius: 8, border: 'none', background: dark ? '#2a2a4a' : '#f0f0f0', color: textPrimary, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>📤 {t.share}</button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function SnapNewsCard({ article: a, index: i, total, lang, newsLang, t, savedIds, toggleSave, handleShare, setFullStory, dark, bgCard, textPrimary, textSecondary, textBody, border }) {
+  const ref = useRef(null);
+  const [h, setH] = useState(0);
+  const content = newsLang === 'te' ? a.te : a.en;
+  const isSaved = savedIds.includes(a.id);
+
+  useEffect(() => {
+    const measure = () => {
+      if (ref.current && ref.current.parentElement) {
+        setH(ref.current.parentElement.clientHeight);
+      }
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  const imgH = Math.round(h * 0.4) || 200;
+
+  return (
+    <div ref={ref} className="snap-item" style={{ height: h || '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Image */}
+      <div style={{ position: 'relative', height: imgH, minHeight: imgH, cursor: 'pointer' }} onClick={() => setFullStory(a)}>
+        <img src={a.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(transparent 50%, rgba(0,0,0,.5))' }} />
+        <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {a.breaking && <span style={{ background: C.accent, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{t.breaking}</span>}
+          <span style={{ background: C.primary, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>{catIcons[a.category]} {a.category}</span>
+        </div>
+        <div style={{ position: 'absolute', bottom: 10, left: 10 }}>
+          <span style={{ background: 'rgba(0,0,0,.6)', color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>📍 {a.mandal}{a.district ? `, ${a.district}` : ''}</span>
+        </div>
+        <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,.6)', color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>{i + 1}/{total}</div>
+      </div>
+      {/* Content */}
+      <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', background: bgCard, overflow: 'hidden' }}>
+        <h2 onClick={() => setFullStory(a)} style={{ fontSize: lang === 'te' ? 19 : 20, fontWeight: 800, lineHeight: 1.3, color: textPrimary, marginBottom: 6, cursor: 'pointer' }}>{content.title}</h2>
+        <div style={{ fontSize: 12, color: textSecondary, marginBottom: 10 }}>{a.author} • {a.time}</div>
+        <p style={{ fontSize: 14, color: textBody, lineHeight: 1.7, flex: 1, overflow: 'hidden' }}>{content.body}</p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, marginTop: 8, borderTop: `1px solid ${border}` }}>
+          <button onClick={() => setFullStory(a)} style={{ color: C.accent, fontWeight: 700, fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{t.readMore}</button>
+          <div style={{ display: 'flex', gap: 16 }}>
+            <button onClick={() => toggleSave(a.id)} style={{ fontSize: 14, color: isSaved ? C.accent : textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: isSaved ? 700 : 400 }}>{isSaved ? '🔖 Saved' : '🔖'}</button>
+            <button onClick={() => handleShare(a)} style={{ fontSize: 14, color: textSecondary, background: 'none', border: 'none', cursor: 'pointer' }}>📤</button>
+          </div>
+        </div>
+        <div style={{ textAlign: 'center', fontSize: 11, color: dark ? '#555' : '#bbb', marginTop: 6 }}>↕ Swipe up for next</div>
       </div>
     </div>
   );
