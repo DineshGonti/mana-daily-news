@@ -67,6 +67,7 @@ export default function App() {
   const [articles, setArticles] = useState([]);
   const [cat, setCat] = useState('All');
   const [tab, setTab] = useState('home');
+  const [idx, setIdx] = useState(0);
   const [splash, setSplash] = useState(true);
   const [dark, setDark] = useState(() => localStorage.getItem('mana-dark') === 'true');
   const [savedIds, setSavedIds] = useState(getSaved);
@@ -103,6 +104,7 @@ export default function App() {
   if (selectedDistrict !== 'All') filtered = filtered.filter(a => a.district === selectedDistrict);
   if (selectedMandal !== 'All') filtered = filtered.filter(a => a.mandal === selectedMandal);
 
+  useEffect(() => { setIdx(0); }, [cat, selectedMandal, selectedDistrict]);
 
   // Save/unsave
   const toggleSave = (id) => {
@@ -174,12 +176,14 @@ export default function App() {
         </div>
       </div>
 
-      {/* News - Inshorts/Way2News style: one article, swipe to change */}
-      {filtered.length === 0 ? (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: textSecondary, fontSize: 16 }}>No news in this category</div>
-      ) : (
-        <SwipeCard articles={filtered} lang={lang} newsLang={newsLang} t={t} savedIds={savedIds} toggleSave={toggleSave} handleShare={handleShare} setFullStory={setFullStory} dark={dark} bgCard={bgCard} textPrimary={textPrimary} textSecondary={textSecondary} textBody={textBody} border={border} cat={cat} />
-      )}
+      {/* News Cards */}
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+        {filtered.length === 0 ? (
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: textSecondary, fontSize: 16 }}>No news in this category</div>
+        ) : (
+          <NewsCard article={filtered[idx]} lang={lang} newsLang={newsLang} t={t} idx={idx} total={filtered.length} onNext={() => setIdx(i => Math.min(i + 1, filtered.length - 1))} onPrev={() => setIdx(i => Math.max(i - 1, 0))} savedIds={savedIds} toggleSave={toggleSave} handleShare={handleShare} setFullStory={setFullStory} dark={dark} textPrimary={textPrimary} textSecondary={textSecondary} textBody={textBody} border={border} />
+        )}
+      </div>
 
       {/* Bottom Nav */}
       <BottomNav tab={tab} setTab={setTab} t={t} dark={dark} bg={bg} border={border} />
@@ -187,6 +191,67 @@ export default function App() {
   );
 }
 
+function NewsCard({ article, lang, newsLang = 'te', t, idx, total, onNext, onPrev, savedIds, toggleSave, handleShare, setFullStory, dark, textPrimary, textSecondary, textBody, border }) {
+  const startY = useRef(0);
+  const [dragging, setDragging] = useState(false);
+  const [offsetY, setOffsetY] = useState(0);
+
+  const handleStart = (y) => { startY.current = y; setDragging(true); };
+  const handleMove = (y) => { if (dragging) setOffsetY(startY.current - y); };
+  const handleEnd = () => { setDragging(false); if (offsetY > 60) onNext(); else if (offsetY < -60) onPrev(); setOffsetY(0); };
+
+  useEffect(() => {
+    const h = (e) => { if (e.key === 'ArrowDown' || e.key === 'ArrowRight') onNext(); if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') onPrev(); };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, [onNext, onPrev]);
+
+  const a = article;
+  const content = newsLang === 'te' ? a.te : a.en;
+  const isSaved = savedIds.includes(a.id);
+
+  return (
+    <div
+      onTouchStart={e => handleStart(e.touches[0].clientY)}
+      onTouchMove={e => handleMove(e.touches[0].clientY)}
+      onTouchEnd={handleEnd}
+      onMouseDown={e => handleStart(e.clientY)}
+      onMouseMove={e => dragging && handleMove(e.clientY)}
+      onMouseUp={handleEnd}
+      onMouseLeave={() => dragging && handleEnd()}
+      style={{ height: '100%', display: 'flex', flexDirection: 'column', userSelect: 'none', transform: `translateY(${-offsetY * 0.3}px)`, transition: dragging ? 'none' : 'transform .3s ease' }}
+    >
+      <div style={{ position: 'relative', height: '42%', overflow: 'hidden' }}>
+        <img src={a.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(transparent 50%, rgba(0,0,0,.4))' }} />
+        <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {a.breaking && <span style={{ background: C.accent, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{t.breaking}</span>}
+          <span style={{ background: C.primary, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>{catIcons[a.category]} {a.category}</span>
+          <span style={{ background: 'rgba(0,0,0,.6)', color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>📍 {a.mandal}{a.district ? `, ${a.district}` : ''}</span>
+        </div>
+        <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 5 }}>
+          {Array.from({ length: Math.min(total, 7) }).map((_, i) => (
+            <div key={i} style={{ width: i === idx % 7 ? 18 : 6, height: 6, borderRadius: 3, background: i === idx % 7 ? '#fff' : 'rgba(255,255,255,.5)', transition: 'all .3s' }} />
+          ))}
+        </div>
+      </div>
+
+      <div style={{ flex: 1, padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
+        <h2 style={{ fontSize: lang === 'te' ? 19 : 20, fontWeight: 800, lineHeight: 1.3, color: textPrimary, marginBottom: 8 }}>{content.title}</h2>
+        <div style={{ fontSize: 12, color: textSecondary, marginBottom: 10 }}>{a.author} • {a.time}</div>
+        <p style={{ fontSize: 14, color: textBody, lineHeight: 1.6, flex: 1, overflow: 'hidden' }}>{content.body}</p>
+        <button onClick={() => setFullStory(a)} style={{ color: C.accent, fontWeight: 700, fontSize: 14, marginTop: 8, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>{t.readMore}</button>
+        <div style={{ display: 'flex', justifyContent: 'space-around', paddingTop: 12, marginTop: 8, borderTop: `1px solid ${border}` }}>
+          <button onClick={() => toggleSave(a.id)} style={{ fontSize: 12, color: isSaved ? C.accent : textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: isSaved ? 700 : 400 }}>
+            {isSaved ? '🔖 ' + t.unsave : '🔖 ' + t.save}
+          </button>
+          <button onClick={() => handleShare(a)} style={{ fontSize: 12, color: textSecondary, background: 'none', border: 'none', cursor: 'pointer' }}>📤 {t.share}</button>
+        </div>
+        <div style={{ textAlign: 'center', fontSize: 11, color: dark ? '#555' : '#ccc', marginTop: 8 }}>↕ {t.swipe}</div>
+      </div>
+    </div>
+  );
+}
 
 function FullStoryView({ article, lang, newsLang = 'te', t, dark, bg, textPrimary, textBody, onClose, savedIds, toggleSave, handleShare }) {
   const a = article;
@@ -217,137 +282,6 @@ function FullStoryView({ article, lang, newsLang = 'te', t, dark, bg, textPrimar
               {isSaved ? '🔖 ' + t.unsave : '🔖 ' + t.save}
             </button>
             <button onClick={() => handleShare(a)} style={{ flex: 1, padding: '12px', borderRadius: 8, border: 'none', background: dark ? '#2a2a4a' : '#f0f0f0', color: textPrimary, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>📤 {t.share}</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function SwipeCard({ articles, lang, newsLang, t, savedIds, toggleSave, handleShare, setFullStory, dark, bgCard, textPrimary, textSecondary, textBody, border, cat }) {
-  const [idx, setIdx] = useState(0);
-  const [anim, setAnim] = useState('');
-  const idxRef = useRef(0);
-  const startY = useRef(0);
-  const startX = useRef(0);
-  const swiping = useRef(false);
-  const articlesRef = useRef(articles);
-  articlesRef.current = articles;
-
-  // Reset on category change
-  useEffect(() => { idxRef.current = 0; setIdx(0); }, [cat]);
-
-  const goNext = useCallback(() => {
-    const cur = idxRef.current;
-    if (cur < articlesRef.current.length - 1) {
-      idxRef.current = cur + 1;
-      setAnim('up');
-      setTimeout(() => { setIdx(idxRef.current); setAnim(''); }, 250);
-    }
-  }, []);
-
-  const goPrev = useCallback(() => {
-    const cur = idxRef.current;
-    if (cur > 0) {
-      idxRef.current = cur - 1;
-      setAnim('down');
-      setTimeout(() => { setIdx(idxRef.current); setAnim(''); }, 250);
-    }
-  }, []);
-
-  // Touch handlers — registered ONCE, never re-registered
-  const handleTouchStart = useCallback((e) => {
-    startY.current = e.touches[0].clientY;
-    startX.current = e.touches[0].clientX;
-    swiping.current = false;
-  }, []);
-
-  const handleTouchMove = useCallback((e) => {
-    const dy = Math.abs(e.touches[0].clientY - startY.current);
-    const dx = Math.abs(e.touches[0].clientX - startX.current);
-    if (dy > 8 && dy > dx * 1.2) {
-      swiping.current = true;
-      e.preventDefault();
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback((e) => {
-    if (!swiping.current) return;
-    const endY = e.changedTouches[0].clientY;
-    const diff = startY.current - endY;
-    if (diff > 40) goNext();
-    else if (diff < -40) goPrev();
-  }, [goNext, goPrev]);
-
-  // Register touch listeners ONCE on mount
-  const containerRef = useRef(null);
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    el.addEventListener('touchstart', handleTouchStart, { passive: true });
-    el.addEventListener('touchmove', handleTouchMove, { passive: false });
-    el.addEventListener('touchend', handleTouchEnd, { passive: true });
-    return () => {
-      el.removeEventListener('touchstart', handleTouchStart);
-      el.removeEventListener('touchmove', handleTouchMove);
-      el.removeEventListener('touchend', handleTouchEnd);
-    };
-  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
-
-  // Keyboard
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') goNext();
-      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') goPrev();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [goNext, goPrev]);
-
-  const safeIdx = Math.min(idx, articles.length - 1);
-  const a = articles[safeIdx];
-  if (!a) return null;
-
-  const content = newsLang === 'te' ? a.te : a.en;
-  const isSaved = savedIds.includes(a.id);
-
-  let animStyle = {};
-  if (anim === 'up') animStyle = { transform: 'translateY(-100%)', transition: 'transform 0.25s ease-in' };
-  else if (anim === 'down') animStyle = { transform: 'translateY(100%)', transition: 'transform 0.25s ease-in' };
-  else animStyle = { transform: 'translateY(0)' };
-
-  // touchAction: pan-x tells browser "let me handle vertical, you handle horizontal"
-  // userSelect: none prevents text selection during swipe
-  return (
-    <div ref={containerRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', touchAction: 'pan-x', WebkitUserSelect: 'none', userSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
-      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', ...animStyle }}>
-        {/* Image - top 42% */}
-        <div style={{ position: 'relative', flex: '0 0 42%' }} onClick={() => setFullStory(a)}>
-          <img src={a.img} alt="" draggable="false" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(transparent 50%, rgba(0,0,0,.5))', pointerEvents: 'none' }} />
-          <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6, flexWrap: 'wrap', pointerEvents: 'none' }}>
-            {a.breaking && <span style={{ background: C.accent, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{t.breaking}</span>}
-            <span style={{ background: C.primary, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>{catIcons[a.category]} {a.category}</span>
-          </div>
-          <div style={{ position: 'absolute', bottom: 10, left: 10, pointerEvents: 'none' }}>
-            <span style={{ background: 'rgba(0,0,0,.6)', color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>📍 {a.mandal}{a.district ? `, ${a.district}` : ''}</span>
-          </div>
-        </div>
-
-        {/* Content - bottom 58% */}
-        <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', background: bgCard, overflow: 'hidden' }}>
-          <h2 onClick={() => setFullStory(a)} style={{ fontSize: lang === 'te' ? 19 : 20, fontWeight: 800, lineHeight: 1.3, color: textPrimary, marginBottom: 6 }}>{content.title}</h2>
-          <div style={{ fontSize: 12, color: textSecondary, marginBottom: 10 }}>{a.author} • {a.time}</div>
-          <p style={{ fontSize: 14, color: textBody, lineHeight: 1.7, flex: 1, overflow: 'hidden' }}>{content.body}</p>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, marginTop: 8, borderTop: `1px solid ${border}` }}>
-            <button onClick={() => setFullStory(a)} style={{ color: C.accent, fontWeight: 700, fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{t.readMore}</button>
-            <div style={{ display: 'flex', gap: 16 }}>
-              <button onClick={() => toggleSave(a.id)} style={{ fontSize: 14, color: isSaved ? C.accent : textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: isSaved ? 700 : 400 }}>{isSaved ? '🔖 Saved' : '🔖'}</button>
-              <button onClick={() => handleShare(a)} style={{ fontSize: 14, color: textSecondary, background: 'none', border: 'none', cursor: 'pointer' }}>📤</button>
-            </div>
-          </div>
-          <div style={{ textAlign: 'center', fontSize: 11, color: dark ? '#555' : '#bbb', marginTop: 6 }}>
-            {safeIdx < articles.length - 1 ? `↑ Swipe up for next (${safeIdx + 1}/${articles.length})` : '— End of news —'}
           </div>
         </div>
       </div>
