@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getArticles, catIcons, mandals, districts, startAutoFetch, fetchGoogleNews } from './store.js';
 
 // Brand colors
@@ -67,7 +67,6 @@ export default function App() {
   const [articles, setArticles] = useState([]);
   const [cat, setCat] = useState('All');
   const [tab, setTab] = useState('home');
-  const [idx, setIdx] = useState(0);
   const [splash, setSplash] = useState(true);
   const [dark, setDark] = useState(() => localStorage.getItem('mana-dark') === 'true');
   const [savedIds, setSavedIds] = useState(getSaved);
@@ -104,7 +103,6 @@ export default function App() {
   if (selectedDistrict !== 'All') filtered = filtered.filter(a => a.district === selectedDistrict);
   if (selectedMandal !== 'All') filtered = filtered.filter(a => a.mandal === selectedMandal);
 
-  useEffect(() => { setIdx(0); }, [cat, selectedMandal, selectedDistrict]);
 
   // Save/unsave
   const toggleSave = (id) => {
@@ -176,13 +174,44 @@ export default function App() {
         </div>
       </div>
 
-      {/* News Cards */}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>
+      {/* News Feed - Scrollable */}
+      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
         {filtered.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: textSecondary, fontSize: 16 }}>No news in this category</div>
-        ) : (
-          <NewsCard article={filtered[idx]} lang={lang} newsLang={newsLang} t={t} idx={idx} total={filtered.length} onNext={() => setIdx(i => Math.min(i + 1, filtered.length - 1))} onPrev={() => setIdx(i => Math.max(i - 1, 0))} savedIds={savedIds} toggleSave={toggleSave} handleShare={handleShare} setFullStory={setFullStory} dark={dark} textPrimary={textPrimary} textSecondary={textSecondary} textBody={textBody} border={border} />
-        )}
+        ) : filtered.map(a => {
+          const content = newsLang === 'te' ? a.te : a.en;
+          const isSaved = savedIds.includes(a.id);
+          return (
+            <div key={a.id} style={{ borderRadius: 14, overflow: 'hidden', background: bgCard, boxShadow: dark ? '0 2px 8px rgba(0,0,0,.3)' : '0 2px 10px rgba(0,0,0,.08)', border: `1px solid ${border}` }}>
+              <div style={{ position: 'relative', height: 180, overflow: 'hidden', cursor: 'pointer' }} onClick={() => setFullStory(a)}>
+                <img src={a.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(transparent 40%, rgba(0,0,0,.5))' }} />
+                <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {a.breaking && <span style={{ background: C.accent, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{t.breaking}</span>}
+                  <span style={{ background: C.primary, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>{catIcons[a.category]} {a.category}</span>
+                </div>
+                <div style={{ position: 'absolute', bottom: 10, left: 10 }}>
+                  <span style={{ background: 'rgba(0,0,0,.6)', color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>📍 {a.mandal}{a.district ? `, ${a.district}` : ''}</span>
+                </div>
+              </div>
+              <div style={{ padding: '12px 14px' }}>
+                <h3 onClick={() => setFullStory(a)} style={{ fontSize: lang === 'te' ? 17 : 18, fontWeight: 800, lineHeight: 1.3, color: textPrimary, marginBottom: 6, cursor: 'pointer' }}>{content.title}</h3>
+                <div style={{ fontSize: 12, color: textSecondary, marginBottom: 8 }}>{a.author} • {a.time}</div>
+                <p style={{ fontSize: 14, color: textBody, lineHeight: 1.6 }}>{content.body}</p>
+                {content.extra && <p style={{ fontSize: 14, color: textBody, lineHeight: 1.6, marginTop: 8 }}>{content.extra}</p>}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, marginTop: 10, borderTop: `1px solid ${border}` }}>
+                  <button onClick={() => setFullStory(a)} style={{ color: C.accent, fontWeight: 700, fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{t.readMore}</button>
+                  <div style={{ display: 'flex', gap: 14 }}>
+                    <button onClick={() => toggleSave(a.id)} style={{ fontSize: 12, color: isSaved ? C.accent : textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: isSaved ? 700 : 400 }}>
+                      {isSaved ? '🔖' : '🔖'}
+                    </button>
+                    <button onClick={() => handleShare(a)} style={{ fontSize: 12, color: textSecondary, background: 'none', border: 'none', cursor: 'pointer' }}>📤</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* Bottom Nav */}
@@ -191,67 +220,6 @@ export default function App() {
   );
 }
 
-function NewsCard({ article, lang, newsLang = 'te', t, idx, total, onNext, onPrev, savedIds, toggleSave, handleShare, setFullStory, dark, textPrimary, textSecondary, textBody, border }) {
-  const startY = useRef(0);
-  const [dragging, setDragging] = useState(false);
-  const [offsetY, setOffsetY] = useState(0);
-
-  const handleStart = (y) => { startY.current = y; setDragging(true); };
-  const handleMove = (y) => { if (dragging) setOffsetY(startY.current - y); };
-  const handleEnd = () => { setDragging(false); if (offsetY > 60) onNext(); else if (offsetY < -60) onPrev(); setOffsetY(0); };
-
-  useEffect(() => {
-    const h = (e) => { if (e.key === 'ArrowDown' || e.key === 'ArrowRight') onNext(); if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') onPrev(); };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  }, [onNext, onPrev]);
-
-  const a = article;
-  const content = newsLang === 'te' ? a.te : a.en;
-  const isSaved = savedIds.includes(a.id);
-
-  return (
-    <div
-      onTouchStart={e => handleStart(e.touches[0].clientY)}
-      onTouchMove={e => handleMove(e.touches[0].clientY)}
-      onTouchEnd={handleEnd}
-      onMouseDown={e => handleStart(e.clientY)}
-      onMouseMove={e => dragging && handleMove(e.clientY)}
-      onMouseUp={handleEnd}
-      onMouseLeave={() => dragging && handleEnd()}
-      style={{ height: '100%', display: 'flex', flexDirection: 'column', userSelect: 'none', transform: `translateY(${-offsetY * 0.3}px)`, transition: dragging ? 'none' : 'transform .3s ease' }}
-    >
-      <div style={{ position: 'relative', height: '42%', overflow: 'hidden' }}>
-        <img src={a.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(transparent 50%, rgba(0,0,0,.4))' }} />
-        <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {a.breaking && <span style={{ background: C.accent, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{t.breaking}</span>}
-          <span style={{ background: C.primary, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>{catIcons[a.category]} {a.category}</span>
-          <span style={{ background: 'rgba(0,0,0,.6)', color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>📍 {a.mandal}{a.district ? `, ${a.district}` : ''}</span>
-        </div>
-        <div style={{ position: 'absolute', bottom: 10, left: 0, right: 0, display: 'flex', justifyContent: 'center', gap: 5 }}>
-          {Array.from({ length: Math.min(total, 7) }).map((_, i) => (
-            <div key={i} style={{ width: i === idx % 7 ? 18 : 6, height: 6, borderRadius: 3, background: i === idx % 7 ? '#fff' : 'rgba(255,255,255,.5)', transition: 'all .3s' }} />
-          ))}
-        </div>
-      </div>
-
-      <div style={{ flex: 1, padding: '16px 18px', display: 'flex', flexDirection: 'column' }}>
-        <h2 style={{ fontSize: lang === 'te' ? 19 : 20, fontWeight: 800, lineHeight: 1.3, color: textPrimary, marginBottom: 8 }}>{content.title}</h2>
-        <div style={{ fontSize: 12, color: textSecondary, marginBottom: 10 }}>{a.author} • {a.time}</div>
-        <p style={{ fontSize: 14, color: textBody, lineHeight: 1.6, flex: 1, overflow: 'hidden' }}>{content.body}</p>
-        <button onClick={() => setFullStory(a)} style={{ color: C.accent, fontWeight: 700, fontSize: 14, marginTop: 8, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>{t.readMore}</button>
-        <div style={{ display: 'flex', justifyContent: 'space-around', paddingTop: 12, marginTop: 8, borderTop: `1px solid ${border}` }}>
-          <button onClick={() => toggleSave(a.id)} style={{ fontSize: 12, color: isSaved ? C.accent : textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: isSaved ? 700 : 400 }}>
-            {isSaved ? '🔖 ' + t.unsave : '🔖 ' + t.save}
-          </button>
-          <button onClick={() => handleShare(a)} style={{ fontSize: 12, color: textSecondary, background: 'none', border: 'none', cursor: 'pointer' }}>📤 {t.share}</button>
-        </div>
-        <div style={{ textAlign: 'center', fontSize: 11, color: dark ? '#555' : '#ccc', marginTop: 8 }}>↕ {t.swipe}</div>
-      </div>
-    </div>
-  );
-}
 
 function FullStoryView({ article, lang, newsLang = 'te', t, dark, bg, textPrimary, textBody, onClose, savedIds, toggleSave, handleShare }) {
   const a = article;
