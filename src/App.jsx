@@ -175,16 +175,16 @@ export default function App() {
       </div>
 
       {/* News Feed - Scrollable */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px' }}>
         {filtered.length === 0 ? (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: textSecondary, fontSize: 16 }}>No news in this category</div>
         ) : filtered.map(a => {
           const content = newsLang === 'te' ? a.te : a.en;
           const isSaved = savedIds.includes(a.id);
           return (
-            <div key={a.id} style={{ borderRadius: 14, overflow: 'hidden', background: bgCard, boxShadow: dark ? '0 2px 8px rgba(0,0,0,.3)' : '0 2px 10px rgba(0,0,0,.08)', border: `1px solid ${border}` }}>
-              <div style={{ position: 'relative', height: 180, overflow: 'hidden', cursor: 'pointer' }} onClick={() => setFullStory(a)}>
-                <img src={a.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <div key={a.id} style={{ borderRadius: 14, overflow: 'hidden', background: bgCard, boxShadow: dark ? '0 2px 8px rgba(0,0,0,.3)' : '0 2px 10px rgba(0,0,0,.08)', border: `1px solid ${border}`, marginBottom: 14 }}>
+              <div style={{ position: 'relative', height: 180, minHeight: 180, overflow: 'hidden', cursor: 'pointer' }} onClick={() => setFullStory(a)}>
+                <img src={a.img} alt="" style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }} />
                 <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(transparent 40%, rgba(0,0,0,.5))' }} />
                 <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {a.breaking && <span style={{ background: C.accent, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{t.breaking}</span>}
