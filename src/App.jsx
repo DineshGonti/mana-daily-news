@@ -174,14 +174,12 @@ export default function App() {
         </div>
       </div>
 
-      {/* News - One article per screen with snap scroll */}
-      <div className="snap-container" style={{ flex: '1 1 0%' }}>
-        {filtered.length === 0 ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: textSecondary, fontSize: 16 }}>No news in this category</div>
-        ) : filtered.map((a, i) => (
-          <SnapNewsCard key={a.id} article={a} index={i} total={filtered.length} lang={lang} newsLang={newsLang} t={t} savedIds={savedIds} toggleSave={toggleSave} handleShare={handleShare} setFullStory={setFullStory} dark={dark} bgCard={bgCard} textPrimary={textPrimary} textSecondary={textSecondary} textBody={textBody} border={border} />
-        ))}
-      </div>
+      {/* News - Inshorts/Way2News style: one article, swipe to change */}
+      {filtered.length === 0 ? (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: textSecondary, fontSize: 16 }}>No news in this category</div>
+      ) : (
+        <SwipeCard articles={filtered} lang={lang} newsLang={newsLang} t={t} savedIds={savedIds} toggleSave={toggleSave} handleShare={handleShare} setFullStory={setFullStory} dark={dark} bgCard={bgCard} textPrimary={textPrimary} textSecondary={textSecondary} textBody={textBody} border={border} cat={cat} />
+      )}
 
       {/* Bottom Nav */}
       <BottomNav tab={tab} setTab={setTab} t={t} dark={dark} bg={bg} border={border} />
@@ -226,29 +224,67 @@ function FullStoryView({ article, lang, newsLang = 'te', t, dark, bg, textPrimar
   );
 }
 
-function SnapNewsCard({ article: a, index: i, total, lang, newsLang, t, savedIds, toggleSave, handleShare, setFullStory, dark, bgCard, textPrimary, textSecondary, textBody, border }) {
-  const ref = useRef(null);
-  const [h, setH] = useState(0);
+function SwipeCard({ articles, lang, newsLang, t, savedIds, toggleSave, handleShare, setFullStory, dark, bgCard, textPrimary, textSecondary, textBody, border, cat }) {
+  const [idx, setIdx] = useState(0);
+  const [offsetY, setOffsetY] = useState(0);
+  const [swiping, setSwiping] = useState(false);
+  const startY = useRef(0);
+  const startTime = useRef(0);
+
+  // Reset index when category changes
+  useEffect(() => { setIdx(0); }, [cat]);
+
+  // Clamp idx to valid range
+  const safeIdx = Math.min(idx, articles.length - 1);
+  const a = articles[safeIdx];
+  if (!a) return null;
+
   const content = newsLang === 'te' ? a.te : a.en;
   const isSaved = savedIds.includes(a.id);
 
-  useEffect(() => {
-    const measure = () => {
-      if (ref.current && ref.current.parentElement) {
-        setH(ref.current.parentElement.clientHeight);
-      }
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, []);
+  const goNext = () => { if (safeIdx < articles.length - 1) setIdx(safeIdx + 1); };
+  const goPrev = () => { if (safeIdx > 0) setIdx(safeIdx - 1); };
 
-  const imgH = Math.round(h * 0.4) || 200;
+  const onTouchStart = (e) => {
+    startY.current = e.touches[0].clientY;
+    startTime.current = Date.now();
+    setSwiping(true);
+  };
+  const onTouchMove = (e) => {
+    if (!swiping) return;
+    const diff = startY.current - e.touches[0].clientY;
+    setOffsetY(diff);
+  };
+  const onTouchEnd = () => {
+    setSwiping(false);
+    const velocity = Math.abs(offsetY) / (Date.now() - startTime.current + 1);
+    if (offsetY > 50 || (offsetY > 20 && velocity > 0.3)) goNext();
+    else if (offsetY < -50 || (offsetY < -20 && velocity > 0.3)) goPrev();
+    setOffsetY(0);
+  };
+
+  // Keyboard support
+  useEffect(() => {
+    const h = (e) => {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') goNext();
+      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') goPrev();
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  });
+
+  // Translate amount for swipe animation
+  const ty = swiping ? Math.max(-80, Math.min(80, -offsetY * 0.4)) : 0;
 
   return (
-    <div ref={ref} className="snap-item" style={{ height: h || '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Image */}
-      <div style={{ position: 'relative', height: imgH, minHeight: imgH, cursor: 'pointer' }} onClick={() => setFullStory(a)}>
+    <div
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+      style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', userSelect: 'none', transform: `translateY(${ty}px)`, transition: swiping ? 'none' : 'transform 0.3s ease' }}
+    >
+      {/* Image - top 42% */}
+      <div style={{ position: 'relative', flex: '0 0 42%', cursor: 'pointer' }} onClick={() => setFullStory(a)}>
         <img src={a.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
         <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(transparent 50%, rgba(0,0,0,.5))' }} />
         <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -258,13 +294,13 @@ function SnapNewsCard({ article: a, index: i, total, lang, newsLang, t, savedIds
         <div style={{ position: 'absolute', bottom: 10, left: 10 }}>
           <span style={{ background: 'rgba(0,0,0,.6)', color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>📍 {a.mandal}{a.district ? `, ${a.district}` : ''}</span>
         </div>
-        <div style={{ position: 'absolute', top: 10, right: 10, background: 'rgba(0,0,0,.6)', color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>{i + 1}/{total}</div>
       </div>
-      {/* Content */}
+
+      {/* Content - bottom 58% */}
       <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', background: bgCard, overflow: 'hidden' }}>
         <h2 onClick={() => setFullStory(a)} style={{ fontSize: lang === 'te' ? 19 : 20, fontWeight: 800, lineHeight: 1.3, color: textPrimary, marginBottom: 6, cursor: 'pointer' }}>{content.title}</h2>
         <div style={{ fontSize: 12, color: textSecondary, marginBottom: 10 }}>{a.author} • {a.time}</div>
-        <p style={{ fontSize: 14, color: textBody, lineHeight: 1.7, flex: 1, overflow: 'hidden' }}>{content.body}</p>
+        <p style={{ fontSize: 14, color: textBody, lineHeight: 1.7, flex: 1, overflowY: 'auto' }}>{content.body}</p>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, marginTop: 8, borderTop: `1px solid ${border}` }}>
           <button onClick={() => setFullStory(a)} style={{ color: C.accent, fontWeight: 700, fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{t.readMore}</button>
           <div style={{ display: 'flex', gap: 16 }}>
@@ -272,7 +308,9 @@ function SnapNewsCard({ article: a, index: i, total, lang, newsLang, t, savedIds
             <button onClick={() => handleShare(a)} style={{ fontSize: 14, color: textSecondary, background: 'none', border: 'none', cursor: 'pointer' }}>📤</button>
           </div>
         </div>
-        <div style={{ textAlign: 'center', fontSize: 11, color: dark ? '#555' : '#bbb', marginTop: 6 }}>↕ Swipe up for next</div>
+        <div style={{ textAlign: 'center', fontSize: 11, color: dark ? '#555' : '#bbb', marginTop: 6 }}>
+          {safeIdx < articles.length - 1 ? '↑ Swipe up for next' : '— End of news —'}
+        </div>
       </div>
     </div>
   );
