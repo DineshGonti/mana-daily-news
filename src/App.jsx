@@ -228,81 +228,96 @@ function SwipeCard({ articles, lang, newsLang, t, savedIds, toggleSave, handleSh
   const [idx, setIdx] = useState(0);
   const [anim, setAnim] = useState('');
   const idxRef = useRef(0);
-  const startY = useRef(0);
-  const startX = useRef(0);
-  const swiping = useRef(false);
   const articlesRef = useRef(articles);
   articlesRef.current = articles;
 
-  // Reset on category change
   useEffect(() => { idxRef.current = 0; setIdx(0); }, [cat]);
 
-  const goNext = useCallback(() => {
-    const cur = idxRef.current;
-    if (cur < articlesRef.current.length - 1) {
-      idxRef.current = cur + 1;
-      setAnim('up');
-      setTimeout(() => { setIdx(idxRef.current); setAnim(''); }, 250);
-    }
-  }, []);
-
-  const goPrev = useCallback(() => {
-    const cur = idxRef.current;
-    if (cur > 0) {
-      idxRef.current = cur - 1;
-      setAnim('down');
-      setTimeout(() => { setIdx(idxRef.current); setAnim(''); }, 250);
-    }
-  }, []);
-
-  // Touch handlers — registered ONCE, never re-registered
-  const handleTouchStart = useCallback((e) => {
-    startY.current = e.touches[0].clientY;
-    startX.current = e.touches[0].clientX;
-    swiping.current = false;
-  }, []);
-
-  const handleTouchMove = useCallback((e) => {
-    const dy = Math.abs(e.touches[0].clientY - startY.current);
-    const dx = Math.abs(e.touches[0].clientX - startX.current);
-    if (dy > 8 && dy > dx * 1.2) {
-      swiping.current = true;
-      e.preventDefault();
-    }
-  }, []);
-
-  const handleTouchEnd = useCallback((e) => {
-    if (!swiping.current) return;
-    const endY = e.changedTouches[0].clientY;
-    const diff = startY.current - endY;
-    if (diff > 40) goNext();
-    else if (diff < -40) goPrev();
-  }, [goNext, goPrev]);
-
-  // Register touch listeners ONCE on mount
-  const containerRef = useRef(null);
+  // Touch tracking — attached to DOCUMENT so nothing can intercept
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    el.addEventListener('touchstart', handleTouchStart, { passive: true });
-    el.addEventListener('touchmove', handleTouchMove, { passive: false });
-    el.addEventListener('touchend', handleTouchEnd, { passive: true });
+    let sy = 0;
+    let sx = 0;
+    let tracking = false;
+    let decided = false;   // have we decided vertical vs horizontal?
+    let isVertical = false;
+
+    function onStart(e) {
+      sy = e.touches[0].clientY;
+      sx = e.touches[0].clientX;
+      tracking = true;
+      decided = false;
+      isVertical = false;
+    }
+
+    function onMove(e) {
+      if (!tracking) return;
+      const dy = Math.abs(e.touches[0].clientY - sy);
+      const dx = Math.abs(e.touches[0].clientX - sx);
+
+      if (!decided && (dy > 10 || dx > 10)) {
+        decided = true;
+        isVertical = dy > dx;
+      }
+
+      // If vertical swipe, block browser scroll
+      if (decided && isVertical) {
+        e.preventDefault();
+      }
+    }
+
+    function onEnd(e) {
+      if (!tracking) return;
+      tracking = false;
+
+      if (!decided || !isVertical) return;
+
+      const endY = e.changedTouches[0].clientY;
+      const diff = sy - endY;
+      const cur = idxRef.current;
+      const len = articlesRef.current.length;
+
+      if (diff > 50 && cur < len - 1) {
+        // Swipe UP → next article
+        idxRef.current = cur + 1;
+        setAnim('up');
+        setTimeout(() => { setIdx(idxRef.current); setAnim(''); }, 250);
+      } else if (diff < -50 && cur > 0) {
+        // Swipe DOWN → previous article
+        idxRef.current = cur - 1;
+        setAnim('down');
+        setTimeout(() => { setIdx(idxRef.current); setAnim(''); }, 250);
+      }
+    }
+
+    document.addEventListener('touchstart', onStart, { passive: true });
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd, { passive: true });
     return () => {
-      el.removeEventListener('touchstart', handleTouchStart);
-      el.removeEventListener('touchmove', handleTouchMove);
-      el.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchstart', onStart);
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
     };
-  }, [handleTouchStart, handleTouchMove, handleTouchEnd]);
+  }, []);
 
   // Keyboard
   useEffect(() => {
     const onKey = (e) => {
-      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') goNext();
-      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') goPrev();
+      const cur = idxRef.current;
+      const len = articlesRef.current.length;
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowRight') && cur < len - 1) {
+        idxRef.current = cur + 1;
+        setAnim('up');
+        setTimeout(() => { setIdx(idxRef.current); setAnim(''); }, 250);
+      }
+      if ((e.key === 'ArrowUp' || e.key === 'ArrowLeft') && cur > 0) {
+        idxRef.current = cur - 1;
+        setAnim('down');
+        setTimeout(() => { setIdx(idxRef.current); setAnim(''); }, 250);
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [goNext, goPrev]);
+  }, []);
 
   const safeIdx = Math.min(idx, articles.length - 1);
   const a = articles[safeIdx];
@@ -316,10 +331,8 @@ function SwipeCard({ articles, lang, newsLang, t, savedIds, toggleSave, handleSh
   else if (anim === 'down') animStyle = { transform: 'translateY(100%)', transition: 'transform 0.25s ease-in' };
   else animStyle = { transform: 'translateY(0)' };
 
-  // touchAction: pan-x tells browser "let me handle vertical, you handle horizontal"
-  // userSelect: none prevents text selection during swipe
   return (
-    <div ref={containerRef} style={{ flex: 1, overflow: 'hidden', position: 'relative', touchAction: 'pan-x', WebkitUserSelect: 'none', userSelect: 'none', MozUserSelect: 'none', msUserSelect: 'none' }}>
+    <div style={{ flex: 1, overflow: 'hidden', position: 'relative', touchAction: 'none', WebkitUserSelect: 'none', userSelect: 'none' }}>
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column', ...animStyle }}>
         {/* Image - top 42% */}
         <div style={{ position: 'relative', flex: '0 0 42%' }} onClick={() => setFullStory(a)}>
@@ -339,14 +352,15 @@ function SwipeCard({ articles, lang, newsLang, t, savedIds, toggleSave, handleSh
           <h2 onClick={() => setFullStory(a)} style={{ fontSize: lang === 'te' ? 19 : 20, fontWeight: 800, lineHeight: 1.3, color: textPrimary, marginBottom: 6 }}>{content.title}</h2>
           <div style={{ fontSize: 12, color: textSecondary, marginBottom: 10 }}>{a.author} • {a.time}</div>
           <p style={{ fontSize: 14, color: textBody, lineHeight: 1.7, flex: 1, overflow: 'hidden' }}>{content.body}</p>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, marginTop: 8, borderTop: `1px solid ${border}` }}>
-            <button onClick={() => setFullStory(a)} style={{ color: C.accent, fontWeight: 700, fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{t.readMore}</button>
+          {/* Action bar — buttons are tappable because clicks still fire after touch */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, marginTop: 8, borderTop: `1px solid ${border}`, touchAction: 'auto' }}>
+            <button onClick={() => setFullStory(a)} style={{ color: C.accent, fontWeight: 700, fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: '8px 4px' }}>{t.readMore}</button>
             <div style={{ display: 'flex', gap: 16 }}>
-              <button onClick={() => toggleSave(a.id)} style={{ fontSize: 14, color: isSaved ? C.accent : textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: isSaved ? 700 : 400 }}>{isSaved ? '🔖 Saved' : '🔖'}</button>
-              <button onClick={() => handleShare(a)} style={{ fontSize: 14, color: textSecondary, background: 'none', border: 'none', cursor: 'pointer' }}>📤</button>
+              <button onClick={() => toggleSave(a.id)} style={{ fontSize: 14, color: isSaved ? C.accent : textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: isSaved ? 700 : 400, padding: '8px 4px' }}>{isSaved ? '🔖 Saved' : '🔖'}</button>
+              <button onClick={() => handleShare(a)} style={{ fontSize: 14, color: textSecondary, background: 'none', border: 'none', cursor: 'pointer', padding: '8px 4px' }}>📤</button>
             </div>
           </div>
-          <div style={{ textAlign: 'center', fontSize: 11, color: dark ? '#555' : '#bbb', marginTop: 6 }}>
+          <div style={{ textAlign: 'center', fontSize: 11, color: dark ? '#555' : '#bbb', marginTop: 4 }}>
             {safeIdx < articles.length - 1 ? `↑ Swipe up for next (${safeIdx + 1}/${articles.length})` : '— End of news —'}
           </div>
         </div>
