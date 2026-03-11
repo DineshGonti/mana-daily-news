@@ -245,23 +245,54 @@ function SwipeCard({ articles, lang, newsLang, t, savedIds, toggleSave, handleSh
   const goNext = () => { if (safeIdx < articles.length - 1) setIdx(safeIdx + 1); };
   const goPrev = () => { if (safeIdx > 0) setIdx(safeIdx - 1); };
 
-  const onTouchStart = (e) => {
-    startY.current = e.touches[0].clientY;
-    startTime.current = Date.now();
-    setSwiping(true);
-  };
-  const onTouchMove = (e) => {
-    if (!swiping) return;
-    const diff = startY.current - e.touches[0].clientY;
-    setOffsetY(diff);
-  };
-  const onTouchEnd = () => {
-    setSwiping(false);
-    const velocity = Math.abs(offsetY) / (Date.now() - startTime.current + 1);
-    if (offsetY > 50 || (offsetY > 20 && velocity > 0.3)) goNext();
-    else if (offsetY < -50 || (offsetY < -20 && velocity > 0.3)) goPrev();
-    setOffsetY(0);
-  };
+  const containerRef = useRef(null);
+  const swipingRef = useRef(false);
+  const offsetRef = useRef(0);
+
+  // Attach touch listeners with {passive: false} so preventDefault works
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const handleStart = (e) => {
+      startY.current = e.touches[0].clientY;
+      startTime.current = Date.now();
+      swipingRef.current = true;
+      setSwiping(true);
+      offsetRef.current = 0;
+    };
+
+    const handleMove = (e) => {
+      if (!swipingRef.current) return;
+      e.preventDefault();
+      const diff = startY.current - e.touches[0].clientY;
+      offsetRef.current = diff;
+      setOffsetY(diff);
+    };
+
+    const handleEnd = () => {
+      if (!swipingRef.current) return;
+      swipingRef.current = false;
+      setSwiping(false);
+      const diff = offsetRef.current;
+      const elapsed = Date.now() - startTime.current + 1;
+      const velocity = Math.abs(diff) / elapsed;
+      if (diff > 40 || (diff > 15 && velocity > 0.25)) goNext();
+      else if (diff < -40 || (diff < -15 && velocity > 0.25)) goPrev();
+      offsetRef.current = 0;
+      setOffsetY(0);
+    };
+
+    el.addEventListener('touchstart', handleStart, { passive: true });
+    el.addEventListener('touchmove', handleMove, { passive: false });
+    el.addEventListener('touchend', handleEnd, { passive: true });
+
+    return () => {
+      el.removeEventListener('touchstart', handleStart);
+      el.removeEventListener('touchmove', handleMove);
+      el.removeEventListener('touchend', handleEnd);
+    };
+  });
 
   // Keyboard support
   useEffect(() => {
@@ -278,10 +309,8 @@ function SwipeCard({ articles, lang, newsLang, t, savedIds, toggleSave, handleSh
 
   return (
     <div
-      onTouchStart={onTouchStart}
-      onTouchMove={onTouchMove}
-      onTouchEnd={onTouchEnd}
-      style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', userSelect: 'none', transform: `translateY(${ty}px)`, transition: swiping ? 'none' : 'transform 0.3s ease' }}
+      ref={containerRef}
+      style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', userSelect: 'none', touchAction: 'none', transform: `translateY(${ty}px)`, transition: swiping ? 'none' : 'transform 0.3s ease' }}
     >
       {/* Image - top 42% */}
       <div style={{ position: 'relative', flex: '0 0 42%', cursor: 'pointer' }} onClick={() => setFullStory(a)}>
