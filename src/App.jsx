@@ -175,26 +175,21 @@ export default function App() {
       </div>
 
       {/* News Feed - Scrollable */}
-      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 14px' }}>
+      <div style={{ flex: '1 1 0%', overflowY: 'scroll', WebkitOverflowScrolling: 'touch', padding: 14 }}>
         {filtered.length === 0 ? (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: textSecondary, fontSize: 16 }}>No news in this category</div>
+          <div style={{ textAlign: 'center', color: textSecondary, fontSize: 16, paddingTop: 60 }}>No news in this category</div>
         ) : filtered.map(a => {
           const content = newsLang === 'te' ? a.te : a.en;
           const isSaved = savedIds.includes(a.id);
           return (
-            <div key={a.id} style={{ borderRadius: 14, overflow: 'hidden', background: bgCard, boxShadow: dark ? '0 2px 8px rgba(0,0,0,.3)' : '0 2px 10px rgba(0,0,0,.08)', border: `1px solid ${border}`, marginBottom: 14 }}>
-              <div style={{ position: 'relative', height: 180, minHeight: 180, overflow: 'hidden', cursor: 'pointer' }} onClick={() => setFullStory(a)}>
-                <img src={a.img} alt="" style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }} />
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(transparent 40%, rgba(0,0,0,.5))' }} />
-                <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <div key={a.id} style={{ borderRadius: 14, background: bgCard, boxShadow: dark ? '0 2px 8px rgba(0,0,0,.3)' : '0 2px 10px rgba(0,0,0,.08)', border: `1px solid ${border}`, marginBottom: 16 }}>
+              <img src={a.img} alt="" onClick={() => setFullStory(a)} style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block', borderRadius: '14px 14px 0 0', cursor: 'pointer' }} />
+              <div style={{ padding: '12px 14px' }}>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
                   {a.breaking && <span style={{ background: C.accent, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{t.breaking}</span>}
                   <span style={{ background: C.primary, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>{catIcons[a.category]} {a.category}</span>
+                  <span style={{ background: dark ? '#333' : '#f0f0f0', color: dark ? '#ccc' : '#666', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>📍 {a.mandal}{a.district ? `, ${a.district}` : ''}</span>
                 </div>
-                <div style={{ position: 'absolute', bottom: 10, left: 10 }}>
-                  <span style={{ background: 'rgba(0,0,0,.6)', color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>📍 {a.mandal}{a.district ? `, ${a.district}` : ''}</span>
-                </div>
-              </div>
-              <div style={{ padding: '12px 14px' }}>
                 <h3 onClick={() => setFullStory(a)} style={{ fontSize: lang === 'te' ? 17 : 18, fontWeight: 800, lineHeight: 1.3, color: textPrimary, marginBottom: 6, cursor: 'pointer' }}>{content.title}</h3>
                 <div style={{ fontSize: 12, color: textSecondary, marginBottom: 8 }}>{a.author} • {a.time}</div>
                 <p style={{ fontSize: 14, color: textBody, lineHeight: 1.6 }}>{content.body}</p>
@@ -202,9 +197,7 @@ export default function App() {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, marginTop: 10, borderTop: `1px solid ${border}` }}>
                   <button onClick={() => setFullStory(a)} style={{ color: C.accent, fontWeight: 700, fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{t.readMore}</button>
                   <div style={{ display: 'flex', gap: 14 }}>
-                    <button onClick={() => toggleSave(a.id)} style={{ fontSize: 12, color: isSaved ? C.accent : textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: isSaved ? 700 : 400 }}>
-                      {isSaved ? '🔖' : '🔖'}
-                    </button>
+                    <button onClick={() => toggleSave(a.id)} style={{ fontSize: 12, color: isSaved ? C.accent : textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: isSaved ? 700 : 400 }}>🔖</button>
                     <button onClick={() => handleShare(a)} style={{ fontSize: 12, color: textSecondary, background: 'none', border: 'none', cursor: 'pointer' }}>📤</button>
                   </div>
                 </div>
