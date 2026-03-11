@@ -225,16 +225,90 @@ function FullStoryView({ article, lang, newsLang = 'te', t, dark, bg, textPrimar
 }
 
 function SwipeCard({ articles, lang, newsLang, t, savedIds, toggleSave, handleShare, setFullStory, dark, bgCard, textPrimary, textSecondary, textBody, border, cat }) {
+  const idxRef = useRef(0);
   const [idx, setIdx] = useState(0);
-  const [offsetY, setOffsetY] = useState(0);
-  const [swiping, setSwiping] = useState(false);
-  const startY = useRef(0);
-  const startTime = useRef(0);
+  const [anim, setAnim] = useState('');  // 'up' | 'down' | ''
+  const touchY = useRef(0);
+  const touchStartX = useRef(0);
+  const moved = useRef(false);
+  const containerRef = useRef(null);
 
   // Reset index when category changes
-  useEffect(() => { setIdx(0); }, [cat]);
+  useEffect(() => { idxRef.current = 0; setIdx(0); }, [cat]);
 
-  // Clamp idx to valid range
+  // All touch logic using refs to avoid stale closures
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const onStart = (e) => {
+      touchY.current = e.touches[0].clientY;
+      touchStartX.current = e.touches[0].clientX;
+      moved.current = false;
+    };
+
+    const onMove = (e) => {
+      const dy = Math.abs(e.touches[0].clientY - touchY.current);
+      const dx = Math.abs(e.touches[0].clientX - touchStartX.current);
+      // Only prevent default if vertical swipe (not horizontal for category scroll)
+      if (dy > 10 && dy > dx) {
+        e.preventDefault();
+        moved.current = true;
+      }
+    };
+
+    const onEnd = (e) => {
+      if (!moved.current) return; // Was a tap, not a swipe — let click events fire
+      const endY = e.changedTouches[0].clientY;
+      const diff = touchY.current - endY;
+      const cur = idxRef.current;
+
+      if (diff > 30) {
+        // Swiped UP → next
+        if (cur < articles.length - 1) {
+          idxRef.current = cur + 1;
+          setAnim('up');
+          setTimeout(() => { setIdx(idxRef.current); setAnim(''); }, 250);
+        }
+      } else if (diff < -30) {
+        // Swiped DOWN → previous
+        if (cur > 0) {
+          idxRef.current = cur - 1;
+          setAnim('down');
+          setTimeout(() => { setIdx(idxRef.current); setAnim(''); }, 250);
+        }
+      }
+    };
+
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd, { passive: true });
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+    };
+  }, [articles.length, cat]);
+
+  // Keyboard
+  useEffect(() => {
+    const onKey = (e) => {
+      const cur = idxRef.current;
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowRight') && cur < articles.length - 1) {
+        idxRef.current = cur + 1;
+        setAnim('up');
+        setTimeout(() => { setIdx(idxRef.current); setAnim(''); }, 250);
+      }
+      if ((e.key === 'ArrowUp' || e.key === 'ArrowLeft') && cur > 0) {
+        idxRef.current = cur - 1;
+        setAnim('down');
+        setTimeout(() => { setIdx(idxRef.current); setAnim(''); }, 250);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [articles.length]);
+
   const safeIdx = Math.min(idx, articles.length - 1);
   const a = articles[safeIdx];
   if (!a) return null;
@@ -242,103 +316,43 @@ function SwipeCard({ articles, lang, newsLang, t, savedIds, toggleSave, handleSh
   const content = newsLang === 'te' ? a.te : a.en;
   const isSaved = savedIds.includes(a.id);
 
-  const goNext = () => { if (safeIdx < articles.length - 1) setIdx(safeIdx + 1); };
-  const goPrev = () => { if (safeIdx > 0) setIdx(safeIdx - 1); };
-
-  const containerRef = useRef(null);
-  const swipingRef = useRef(false);
-  const offsetRef = useRef(0);
-
-  // Attach touch listeners with {passive: false} so preventDefault works
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const handleStart = (e) => {
-      startY.current = e.touches[0].clientY;
-      startTime.current = Date.now();
-      swipingRef.current = true;
-      setSwiping(true);
-      offsetRef.current = 0;
-    };
-
-    const handleMove = (e) => {
-      if (!swipingRef.current) return;
-      e.preventDefault();
-      const diff = startY.current - e.touches[0].clientY;
-      offsetRef.current = diff;
-      setOffsetY(diff);
-    };
-
-    const handleEnd = () => {
-      if (!swipingRef.current) return;
-      swipingRef.current = false;
-      setSwiping(false);
-      const diff = offsetRef.current;
-      const elapsed = Date.now() - startTime.current + 1;
-      const velocity = Math.abs(diff) / elapsed;
-      if (diff > 40 || (diff > 15 && velocity > 0.25)) goNext();
-      else if (diff < -40 || (diff < -15 && velocity > 0.25)) goPrev();
-      offsetRef.current = 0;
-      setOffsetY(0);
-    };
-
-    el.addEventListener('touchstart', handleStart, { passive: true });
-    el.addEventListener('touchmove', handleMove, { passive: false });
-    el.addEventListener('touchend', handleEnd, { passive: true });
-
-    return () => {
-      el.removeEventListener('touchstart', handleStart);
-      el.removeEventListener('touchmove', handleMove);
-      el.removeEventListener('touchend', handleEnd);
-    };
-  });
-
-  // Keyboard support
-  useEffect(() => {
-    const h = (e) => {
-      if (e.key === 'ArrowDown' || e.key === 'ArrowRight') goNext();
-      if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') goPrev();
-    };
-    window.addEventListener('keydown', h);
-    return () => window.removeEventListener('keydown', h);
-  });
-
-  // Translate amount for swipe animation
-  const ty = swiping ? Math.max(-80, Math.min(80, -offsetY * 0.4)) : 0;
+  // Animation style
+  let animStyle = {};
+  if (anim === 'up') animStyle = { transform: 'translateY(-100%)', transition: 'transform 0.25s ease-in' };
+  else if (anim === 'down') animStyle = { transform: 'translateY(100%)', transition: 'transform 0.25s ease-in' };
+  else animStyle = { transform: 'translateY(0)' };
 
   return (
-    <div
-      ref={containerRef}
-      style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', userSelect: 'none', touchAction: 'none', transform: `translateY(${ty}px)`, transition: swiping ? 'none' : 'transform 0.3s ease' }}
-    >
-      {/* Image - top 42% */}
-      <div style={{ position: 'relative', flex: '0 0 42%', cursor: 'pointer' }} onClick={() => setFullStory(a)}>
-        <img src={a.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(transparent 50%, rgba(0,0,0,.5))' }} />
-        <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {a.breaking && <span style={{ background: C.accent, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{t.breaking}</span>}
-          <span style={{ background: C.primary, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>{catIcons[a.category]} {a.category}</span>
-        </div>
-        <div style={{ position: 'absolute', bottom: 10, left: 10 }}>
-          <span style={{ background: 'rgba(0,0,0,.6)', color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>📍 {a.mandal}{a.district ? `, ${a.district}` : ''}</span>
-        </div>
-      </div>
-
-      {/* Content - bottom 58% */}
-      <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', background: bgCard, overflow: 'hidden' }}>
-        <h2 onClick={() => setFullStory(a)} style={{ fontSize: lang === 'te' ? 19 : 20, fontWeight: 800, lineHeight: 1.3, color: textPrimary, marginBottom: 6, cursor: 'pointer' }}>{content.title}</h2>
-        <div style={{ fontSize: 12, color: textSecondary, marginBottom: 10 }}>{a.author} • {a.time}</div>
-        <p style={{ fontSize: 14, color: textBody, lineHeight: 1.7, flex: 1, overflowY: 'auto' }}>{content.body}</p>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, marginTop: 8, borderTop: `1px solid ${border}` }}>
-          <button onClick={() => setFullStory(a)} style={{ color: C.accent, fontWeight: 700, fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{t.readMore}</button>
-          <div style={{ display: 'flex', gap: 16 }}>
-            <button onClick={() => toggleSave(a.id)} style={{ fontSize: 14, color: isSaved ? C.accent : textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: isSaved ? 700 : 400 }}>{isSaved ? '🔖 Saved' : '🔖'}</button>
-            <button onClick={() => handleShare(a)} style={{ fontSize: 14, color: textSecondary, background: 'none', border: 'none', cursor: 'pointer' }}>📤</button>
+    <div ref={containerRef} style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+      <div style={{ height: '100%', display: 'flex', flexDirection: 'column', ...animStyle }}>
+        {/* Image - top 42% */}
+        <div style={{ position: 'relative', flex: '0 0 42%' }} onClick={() => setFullStory(a)}>
+          <img src={a.img} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'linear-gradient(transparent 50%, rgba(0,0,0,.5))' }} />
+          <div style={{ position: 'absolute', top: 10, left: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {a.breaking && <span style={{ background: C.accent, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{t.breaking}</span>}
+            <span style={{ background: C.primary, color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>{catIcons[a.category]} {a.category}</span>
+          </div>
+          <div style={{ position: 'absolute', bottom: 10, left: 10 }}>
+            <span style={{ background: 'rgba(0,0,0,.6)', color: '#fff', padding: '3px 10px', borderRadius: 4, fontSize: 11 }}>📍 {a.mandal}{a.district ? `, ${a.district}` : ''}</span>
           </div>
         </div>
-        <div style={{ textAlign: 'center', fontSize: 11, color: dark ? '#555' : '#bbb', marginTop: 6 }}>
-          {safeIdx < articles.length - 1 ? '↑ Swipe up for next' : '— End of news —'}
+
+        {/* Content - bottom 58% */}
+        <div style={{ flex: 1, padding: '14px 16px', display: 'flex', flexDirection: 'column', background: bgCard, overflow: 'hidden' }}>
+          <h2 onClick={() => setFullStory(a)} style={{ fontSize: lang === 'te' ? 19 : 20, fontWeight: 800, lineHeight: 1.3, color: textPrimary, marginBottom: 6 }}>{content.title}</h2>
+          <div style={{ fontSize: 12, color: textSecondary, marginBottom: 10 }}>{a.author} • {a.time}</div>
+          <p style={{ fontSize: 14, color: textBody, lineHeight: 1.7, flex: 1, overflow: 'hidden' }}>{content.body}</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, marginTop: 8, borderTop: `1px solid ${border}` }}>
+            <button onClick={() => setFullStory(a)} style={{ color: C.accent, fontWeight: 700, fontSize: 13, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>{t.readMore}</button>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <button onClick={() => toggleSave(a.id)} style={{ fontSize: 14, color: isSaved ? C.accent : textSecondary, background: 'none', border: 'none', cursor: 'pointer', fontWeight: isSaved ? 700 : 400 }}>{isSaved ? '🔖 Saved' : '🔖'}</button>
+              <button onClick={() => handleShare(a)} style={{ fontSize: 14, color: textSecondary, background: 'none', border: 'none', cursor: 'pointer' }}>📤</button>
+            </div>
+          </div>
+          <div style={{ textAlign: 'center', fontSize: 11, color: dark ? '#555' : '#bbb', marginTop: 6 }}>
+            {safeIdx < articles.length - 1 ? '↑ Swipe up for next' : '— End of news —'}
+          </div>
         </div>
       </div>
     </div>
