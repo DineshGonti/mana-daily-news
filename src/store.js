@@ -25,15 +25,15 @@ export const mandals = [
 ];
 
 export const catIcons = {
-  Politics: '🏛️', Sports: '🏏', Education: '📚',
-  Entertainment: '🎬', Business: '💼', Health: '🏥',
-  Agriculture: '🌾', Technology: '💻'
+  Education: '📚', Technology: '💻', Sports: '🏏',
+  Agriculture: '🌾', Health: '🏥', Entertainment: '🎬',
+  Politics: '🏛️'
 };
 
 const defaultArticles = [
   {
     id: '1', status: 'published', breaking: true,
-    category: 'Business', mandal: 'Secunderabad', district: 'Hyderabad',
+    category: 'Technology', mandal: 'Secunderabad', district: 'Hyderabad',
     img: 'https://images.unsplash.com/photo-1532601224476-15c79f2f7a51?w=600&h=400&fit=crop',
     te: { title: 'హైదరాబాద్ మెట్రో రైల్ తెలంగాణ ప్రభుత్వ ఆధీనంలోకి', body: 'తెలంగాణ ప్రభుత్వం L&T నుండి హైదరాబాద్ మెట్రో రైల్ ఫేజ్-1ను మార్చి 2026 నాటికి పూర్తిగా స్వాధీనం చేసుకుంటోంది. రూ. 15,000 కోట్ల లావాదేవీలో రూ. 13,000 కోట్ల అప్పు మరియు L&T వాటా కోసం రూ. 2,000 కోట్లు చెల్లించనుంది.' },
     en: { title: 'Telangana Government to Take Over Hyderabad Metro Rail from L&T by March End', body: 'The Government of Telangana is set to complete the takeover of Hyderabad Metro Rail Phase-1 from Larsen & Toubro by March 2026. The state will absorb Rs 13,000 crore in outstanding debt and pay approximately Rs 2,000 crore for L&T equity stake, totalling Rs 15,000 crore.' },
@@ -49,7 +49,7 @@ const defaultArticles = [
   },
   {
     id: '3', status: 'published', breaking: false,
-    category: 'Business', mandal: 'Kukatpally', district: 'Hyderabad',
+    category: 'Technology', mandal: 'Kukatpally', district: 'Hyderabad',
     img: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=600&h=400&fit=crop',
     te: { title: 'లాంజా గ్రూప్ హైదరాబాద్‌లో కొత్త గ్లోబల్ కేపబిలిటీ సెంటర్ ఏర్పాటు', body: 'ప్రపంచ ప్రఖ్యాత CDMO సంస్థ లాంజా గ్రూప్ AG హైదరాబాద్‌లో కొత్త గ్లోబల్ కేపబిలిటీ సెంటర్ (GCC) ఏర్పాటు చేయనున్నట్లు ప్రకటించింది. వందల మంది ఉద్యోగులకు అవకాశం.' },
     en: { title: 'Lonza Group to Set Up New Global Capability Centre in Hyderabad', body: 'Lonza Group AG, a world-leading contract development and manufacturing organization (CDMO), has announced its decision to establish a new Global Capability Centre (GCC) in Hyderabad, creating hundreds of jobs.' },
@@ -65,7 +65,7 @@ const defaultArticles = [
   },
   {
     id: '5', status: 'published', breaking: false,
-    category: 'Business', mandal: 'Secunderabad', district: 'Hyderabad',
+    category: 'Technology', mandal: 'Secunderabad', district: 'Hyderabad',
     img: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?w=600&h=400&fit=crop',
     te: { title: 'TiE Women 2026 హైదరాబాద్‌లో ప్రారంభం: టైర్ 2 నగరాల్లో రోడ్‌షోలు', body: 'TiE హైదరాబాద్ TiE Women 2026 7వ ఎడిషన్‌ను ప్రారంభించింది. నిజామాబాద్, వరంగల్, కరీంనగర్ వంటి టైర్ 2 నగరాల్లో రోడ్‌షోలు నిర్వహించనుంది. మార్చి 31 లోపు నమోదు చేసుకునే మహిళలకు 50% రాయితీ.' },
     en: { title: 'TiE Women 2026 Launched in Hyderabad with Tier 2 City Roadshows', body: 'TiE Hyderabad launched the 7th edition of TiE Women 2026 with plans to conduct roadshows in Nizamabad, Warangal, Karimnagar, and other Tier 2 cities. 50% discount on membership for women registering before March 31.' },
@@ -169,7 +169,7 @@ const defaultArticles = [
   },
   {
     id: '18', status: 'published', breaking: false,
-    category: 'Business', mandal: 'Sangareddy', district: 'Sangareddy',
+    category: 'Technology', mandal: 'Sangareddy', district: 'Sangareddy',
     img: 'https://images.unsplash.com/photo-1495020689067-958852a7765e?w=600&h=400&fit=crop',
     te: { title: 'సంగారెడ్డిలో 500 ఎకరాల కొత్త పారిశ్రామిక వాడ ప్రకటన', body: 'సంగారెడ్డి జిల్లాలో 500 ఎకరాల్లో కొత్త పారిశ్రామిక వాడ ఏర్పాటు చేయనున్నట్లు ప్రభుత్వం ప్రకటించింది. 10,000 మందికి ఉపాధి కల్పించడం లక్ష్యం.' },
     en: { title: 'New 500-Acre Industrial Park Announced in Sangareddy District', body: 'Government announced a new 500-acre industrial park in Sangareddy district, targeting 10,000 new jobs. Infrastructure development to begin next quarter.' },
@@ -248,14 +248,13 @@ const RSS_FEEDS = [
 ];
 
 const categoryKeywords = {
-  Politics: ['minister', 'cm ', 'bjp', 'congress', 'brs', 'election', 'vote', 'mla', 'mp ', 'assembly', 'governor', 'cabinet', 'మంత్రి', 'ఎన్నిక', 'సభ', 'ప్రభుత్వ'],
-  Sports: ['cricket', 'football', 'kabaddi', 'match', 'tournament', 'ipl', 'stadium', 'player', 'క్రికెట్', 'టోర్నమెంట్', 'ఆట'],
   Education: ['school', 'college', 'university', 'student', 'exam', 'education', 'scholarship', 'విద్యార్థ', 'పరీక్ష', 'విశ్వవిద్యాల'],
-  Business: ['crore', 'company', 'industry', 'investment', 'business', 'market', 'stock', 'it ', 'startup', 'కోట్ల', 'పరిశ్రమ', 'వ్యాపార'],
-  Health: ['hospital', 'health', 'doctor', 'medical', 'vaccine', 'disease', 'patient', 'ఆసుపత్రి', 'వైద్య', 'ఆరోగ్య'],
+  Technology: ['tech', 'digital', 'ai ', 'software', 'cyber', 'app ', 'startup', 'it ', 'company', 'టెక్నాల', 'పరిశ్రమ'],
+  Sports: ['cricket', 'football', 'kabaddi', 'match', 'tournament', 'ipl', 'stadium', 'player', 'క్రికెట్', 'టోర్నమెంట్', 'ఆట'],
   Agriculture: ['farmer', 'crop', 'agriculture', 'rain', 'irrigation', 'paddy', 'cotton', 'రైతు', 'వ్యవసాయ', 'పంట'],
-  Technology: ['tech', 'digital', 'ai ', 'software', 'cyber', 'app ', 'టెక్నాల'],
+  Health: ['hospital', 'health', 'doctor', 'medical', 'vaccine', 'disease', 'patient', 'ఆసుపత్రి', 'వైద్య', 'ఆరోగ్య'],
   Entertainment: ['movie', 'film', 'tollywood', 'actor', 'song', 'festival', 'సినిమా', 'చిత్ర', 'ఉత్సవ'],
+  Politics: ['minister', 'cm ', 'bjp', 'congress', 'brs', 'election', 'vote', 'mla', 'mp ', 'assembly', 'governor', 'cabinet', 'మంత్రి', 'ఎన్నిక', 'సభ', 'ప్రభుత్వ', 'crore', 'కోట్ల', 'investment', 'business', 'market', 'stock', 'వ్యాపార', 'industry'],
 };
 
 function guessCategory(text) {
@@ -263,7 +262,7 @@ function guessCategory(text) {
   for (const [cat, keywords] of Object.entries(categoryKeywords)) {
     if (keywords.some(kw => lower.includes(kw))) return cat;
   }
-  return 'Politics';
+  return 'Education';
 }
 
 function guessDistrict(text) {
